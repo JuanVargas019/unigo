@@ -12,11 +12,16 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -39,13 +44,15 @@ import com.example.unigo.navigation.Screen
  * Pantalla de Tareas del módulo académico.
  *
  * Muestra la lista de tareas (en memoria), permite agregar tareas nuevas
- * con su fecha de entrega y marcarlas como completadas.
+ * con su fecha de entrega, marcarlas como completadas y eliminarlas
+ * con el ícono de basura de cada tarjeta.
  * Desde aquí también se puede navegar al Calendario.
  */
 @Composable
 fun TareasScreen(navController: NavController) {
     val tareas = TareasEnMemoria.tareas
     var mostrarFormulario by remember { mutableStateOf(false) }
+    var tareaAEliminar by remember { mutableStateOf<Tarea?>(null) }
 
     Column(
         modifier = Modifier
@@ -124,7 +131,8 @@ fun TareasScreen(navController: NavController) {
                         tarea = tarea,
                         onAlternarEstado = {
                             TareasEnMemoria.alternarCompletada(tarea.id)
-                        }
+                        },
+                        onEliminar = { tareaAEliminar = tarea }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                 }
@@ -154,13 +162,26 @@ fun TareasScreen(navController: NavController) {
             }
         )
     }
+
+    // Confirmación para eliminar una tarea (mismo patrón que en Horario)
+    tareaAEliminar?.let { tarea ->
+        DialogoConfirmarEliminarTarea(
+            tarea = tarea,
+            onConfirmar = {
+                TareasEnMemoria.eliminarTarea(tarea.id)
+                tareaAEliminar = null
+            },
+            onCancelar = { tareaAEliminar = null }
+        )
+    }
 }
 
-/** Tarjeta con la información de una tarea y su checkbox de completada. */
+/** Tarjeta con la información de una tarea, su checkbox y el ícono de eliminar. */
 @Composable
 private fun TarjetaTarea(
     tarea: Tarea,
-    onAlternarEstado: () -> Unit
+    onAlternarEstado: () -> Unit,
+    onEliminar: () -> Unit
 ) {
     val completada = tarea.completada
 
@@ -223,8 +244,53 @@ private fun TarjetaTarea(
                 checked = completada,
                 onCheckedChange = { onAlternarEstado() }
             )
+
+            // Eliminar la tarea (y del calendario)
+            IconButton(onClick = onEliminar) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Eliminar ${tarea.nombre}",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
+}
+
+/** Dialogo sencillo para confirmar la eliminación de una tarea. */
+@Composable
+private fun DialogoConfirmarEliminarTarea(
+    tarea: Tarea,
+    onConfirmar: () -> Unit,
+    onCancelar: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = {
+            Text(
+                text = "¿Eliminar esta tarea?",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Text(text = "${tarea.nombre} · ${tarea.materia} · ${tarea.fechaEntrega}")
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirmar,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text(text = "Sí, eliminar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancelar) {
+                Text(text = "Cancelar")
+            }
+        }
+    )
 }
 
 /** Dialogo con el formulario para crear una tarea nueva. */

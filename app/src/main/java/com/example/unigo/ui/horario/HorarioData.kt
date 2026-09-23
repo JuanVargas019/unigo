@@ -67,6 +67,15 @@ object HorarioEnMemoria {
     }
 
     /**
+     * Elimina una clase del horario por su id (funciona igual para las de
+     * ejemplo y para las agregadas por el usuario). Al quitarla de [clases],
+     * el Horario y el Calendario dejan de mostrarla automáticamente.
+     */
+    fun eliminarClase(id: Int) {
+        clases.removeAll { it.id == id }
+    }
+
+    /**
      * Agrupa las clases por día (Lunes a Viernes) para mostrarlas en el horario.
      * Los días sin clases se devuelven igual, con la lista vacía.
      * Dentro de cada día las clases quedan ordenadas por su hora de inicio.

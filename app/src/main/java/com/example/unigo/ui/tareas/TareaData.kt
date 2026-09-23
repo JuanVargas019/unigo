@@ -58,6 +58,14 @@ object TareasEnMemoria {
         siguienteId++
     }
 
+    /**
+     * Elimina una tarea de la lista por su id. Al quitarla de [tareas],
+     * TareasScreen y CalendarioScreen dejan de mostrarla automáticamente.
+     */
+    fun eliminarTarea(id: Int) {
+        tareas.removeAll { it.id == id }
+    }
+
     /** Cambia el estado de una tarea entre pendiente y completada. */
     fun alternarCompletada(id: Int) {
         val posicion = tareas.indexOfFirst { it.id == id }

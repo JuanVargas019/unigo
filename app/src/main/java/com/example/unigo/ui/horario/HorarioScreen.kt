@@ -13,11 +13,15 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -38,12 +42,14 @@ import androidx.navigation.NavController
  * Pantalla de horario del estudiante.
  *
  * Muestra las clases guardadas en [HorarioEnMemoria] organizadas por día
- * en tarjetas fáciles de leer, y permite agregar clases nuevas con un
- * formulario simple (materia, día y horario).
+ * en tarjetas fáciles de leer, permite agregar clases nuevas con un
+ * formulario simple (materia, día y horario) y eliminar cualquier clase
+ * con el ícono de basura de cada fila.
  */
 @Composable
 fun HorarioScreen(navController: NavController) {
     var mostrarFormulario by remember { mutableStateOf(false) }
+    var claseAEliminar by remember { mutableStateOf<ClaseHorario?>(null) }
     val horario = HorarioEnMemoria.porDia()
 
     Column(
@@ -88,7 +94,10 @@ fun HorarioScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(24.dp))
 
             horario.forEach { dia ->
-                TarjetaDia(dia = dia)
+                TarjetaDia(
+                    dia = dia,
+                    onEliminar = { clase -> claseAEliminar = clase }
+                )
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
@@ -117,11 +126,26 @@ fun HorarioScreen(navController: NavController) {
             }
         )
     }
+
+    // Confirmación para eliminar una clase (ejemplo o agregada por el usuario)
+    claseAEliminar?.let { clase ->
+        DialogoConfirmarEliminar(
+            clase = clase,
+            onConfirmar = {
+                HorarioEnMemoria.eliminarClase(clase.id)
+                claseAEliminar = null
+            },
+            onCancelar = { claseAEliminar = null }
+        )
+    }
 }
 
 /** Tarjeta con todas las clases de un día. */
 @Composable
-private fun TarjetaDia(dia: DiaHorario) {
+private fun TarjetaDia(
+    dia: DiaHorario,
+    onEliminar: (ClaseHorario) -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -150,16 +174,22 @@ private fun TarjetaDia(dia: DiaHorario) {
                     if (index > 0) {
                         Spacer(modifier = Modifier.height(12.dp))
                     }
-                    FilaClase(clase = clase)
+                    FilaClase(
+                        clase = clase,
+                        onEliminar = { onEliminar(clase) }
+                    )
                 }
             }
         }
     }
 }
 
-/** Fila con el horario de una clase: horas a la izquierda y materia a la derecha. */
+/** Fila con el horario de una clase: horas a la izquierda, materia y basura a la derecha. */
 @Composable
-private fun FilaClase(clase: ClaseHorario) {
+private fun FilaClase(
+    clase: ClaseHorario,
+    onEliminar: () -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -185,7 +215,55 @@ private fun FilaClase(clase: ClaseHorario) {
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f)
         )
+
+        // Eliminar la clase del horario (y del calendario)
+        IconButton(
+            onClick = onEliminar,
+            modifier = Modifier.align(Alignment.CenterVertically)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Eliminar ${clase.materia}",
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
     }
+}
+
+/** Dialogo sencillo para confirmar la eliminación de una clase. */
+@Composable
+private fun DialogoConfirmarEliminar(
+    clase: ClaseHorario,
+    onConfirmar: () -> Unit,
+    onCancelar: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = {
+            Text(
+                text = "¿Eliminar esta clase?",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Text(text = "${clase.materia} · ${clase.dia} · ${clase.horaInicio} - ${clase.horaFin}")
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirmar,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text(text = "Sí, eliminar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancelar) {
+                Text(text = "Cancelar")
+            }
+        }
+    )
 }
 
 /** Dialogo con el formulario para crear una clase nueva. */
