@@ -23,8 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.unigo.navigation.Screen
+import com.example.unigo.ui.horario.HorarioEnMemoria
 import com.example.unigo.ui.horario.diaActualEnEspanol
-import com.example.unigo.ui.horario.horarioEjemplo
 
 /**
  * Acceso visual desde el Home hacia otra pantalla de la app.
@@ -154,10 +154,7 @@ fun HomeScreen(navController: NavController) {
 @Composable
 private fun TarjetaResumenDelDia() {
     val diaHoy = diaActualEnEspanol()
-    val clasesDeHoy = horarioEjemplo
-        .firstOrNull { it.dia.equals(diaHoy, ignoreCase = true) }
-        ?.clases
-        .orEmpty()
+    val clasesDeHoy = HorarioEnMemoria.clasesDelDia(diaHoy)
 
     Card(
         modifier = Modifier.fillMaxWidth(),

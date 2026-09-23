@@ -48,14 +48,6 @@ val calificacionesEjemplo: List<MateriaCalificacion> = listOf(
             NotaCorte(corte = "Corte 2", nota = 4.1),
             NotaCorte(corte = "Corte 3", nota = 4.3)
         )
-    ),
-    MateriaCalificacion(
-        nombre = "Matemáticas",
-        notas = listOf(
-            NotaCorte(corte = "Corte 1", nota = 3.5),
-            NotaCorte(corte = "Corte 2", nota = 4.0),
-            NotaCorte(corte = "Corte 3", nota = 3.9)
-        )
     )
 )
 

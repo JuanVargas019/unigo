@@ -25,6 +25,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.unigo.navigation.Screen
+import com.example.unigo.ui.horario.ClaseHorario
+import com.example.unigo.ui.horario.HorarioEnMemoria
+import com.example.unigo.ui.horario.proximaFechaDeClase
 import com.example.unigo.ui.tareas.Tarea
 import com.example.unigo.ui.tareas.TareasEnMemoria
 import com.example.unigo.ui.tareas.desgloseFecha
@@ -34,19 +37,29 @@ import com.example.unigo.ui.tareas.mesesEnEspanol
 /**
  * Pantalla de Calendario del módulo académico.
  *
- * Muestra las fechas de entrega de las tareas agrupadas por día,
- * de la fecha más cercana a la más lejana. Comparte la lista de
- * tareas con TareasScreen a través de [TareasEnMemoria].
+ * Muestra las fechas de entrega de las tareas y las clases del horario
+ * agrupadas por día, de la fecha más cercana a la más lejana.
+ * Comparte los datos con TareasScreen a través de [TareasEnMemoria]
+ * y con HorarioScreen a través de [HorarioEnMemoria] (solo lectura:
+ * las clases se crean únicamente desde el Horario).
  */
 @Composable
 fun CalendarioScreen(navController: NavController) {
     val tareas = TareasEnMemoria.tareas
+    val clases = HorarioEnMemoria.clases
 
-    // Agrupa las tareas por fecha y ordena los días de menor a mayor.
-    val tareasPorFecha: List<Pair<String, List<Tarea>>> = tareas
-        .groupBy { it.fechaEntrega }
-        .toList()
-        .sortedBy { (fecha, _) -> fechaEnMilisegundos(fecha) }
+    // Agrupa las tareas por fecha de entrega.
+    val tareasPorFecha: Map<String, List<Tarea>> = tareas.groupBy { it.fechaEntrega }
+
+    // Agrupa las clases por su próximo día de la semana (dd/MM/yyyy).
+    val clasesPorFecha: Map<String, List<ClaseHorario>> = clases
+        .groupBy { proximaFechaDeClase(it.dia).orEmpty() }
+        .filterKeys { it.isNotEmpty() }
+
+    // Une las fechas de tareas y de clases, ordenadas de menor a mayor.
+    val fechas: List<String> = (tareasPorFecha.keys + clasesPorFecha.keys)
+        .distinct()
+        .sortedBy { fecha -> fechaEnMilisegundos(fecha) }
 
     Column(
         modifier = Modifier
@@ -72,7 +85,7 @@ fun CalendarioScreen(navController: NavController) {
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = "Fechas de entrega de tus tareas",
+                text = "Fechas de entrega de tus tareas y tus próximas clases",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -89,7 +102,7 @@ fun CalendarioScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            if (tareasPorFecha.isEmpty()) {
+            if (fechas.isEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -104,24 +117,25 @@ fun CalendarioScreen(navController: NavController) {
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "Agrega tareas con fecha de entrega desde la pantalla de Tareas.",
+                            text = "Agrega tareas desde la pantalla de Tareas o clases desde el Horario.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             } else {
-                tareasPorFecha.forEach { (fecha, tareasDeLaFecha) ->
+                fechas.forEach { fecha ->
                     TarjetaFecha(
                         fecha = fecha,
-                        tareas = tareasDeLaFecha
+                        tareas = tareasPorFecha[fecha].orEmpty(),
+                        clases = clasesPorFecha[fecha].orEmpty()
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
 
             Text(
-                text = "Los datos se actualizan según las tareas cargadas en la app.",
+                text = "Los datos se actualizan según las tareas y clases cargadas en la app.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -131,9 +145,13 @@ fun CalendarioScreen(navController: NavController) {
     }
 }
 
-/** Tarjeta de un día del calendario con todas sus entregas. */
+/** Tarjeta de un día del calendario con todas sus entregas y clases. */
 @Composable
-private fun TarjetaFecha(fecha: String, tareas: List<Tarea>) {
+private fun TarjetaFecha(
+    fecha: String,
+    tareas: List<Tarea>,
+    clases: List<ClaseHorario>
+) {
     val desglose = desgloseFecha(fecha)
     val dia = desglose?.first
     val mes = desglose?.second
@@ -172,10 +190,10 @@ private fun TarjetaFecha(fecha: String, tareas: List<Tarea>) {
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Entregas del día
+            // Entregas y clases del día
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (tareas.size == 1) "1 entrega" else "${tareas.size} entregas",
+                    text = resumenDelDia(tareas.size, clases.size),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -188,8 +206,54 @@ private fun TarjetaFecha(fecha: String, tareas: List<Tarea>) {
                     }
                     FilaTareaCalendario(tarea = tarea)
                 }
+
+                if (tareas.isNotEmpty() && clases.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                clases.forEachIndexed { index, clase ->
+                    if (index > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    FilaClaseCalendario(clase = clase)
+                }
             }
         }
+    }
+}
+
+/** Texto del encabezado de una fecha: entregas, clases o ambas. */
+private fun resumenDelDia(cantidadTareas: Int, cantidadClases: Int): String {
+    val partes = buildList {
+        if (cantidadTareas > 0) {
+            add(if (cantidadTareas == 1) "1 entrega" else "$cantidadTareas entregas")
+        }
+        if (cantidadClases > 0) {
+            add(if (cantidadClases == 1) "1 clase" else "$cantidadClases clases")
+        }
+    }
+    return partes.joinToString(" · ")
+}
+
+/** Fila con una clase del horario dentro del calendario: materia, día y horario. */
+@Composable
+private fun FilaClaseCalendario(clase: ClaseHorario) {
+    Column {
+        Text(
+            text = "• ${clase.materia}",
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = "${clase.dia} · ${clase.horaInicio} - ${clase.horaFin}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "Clase",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.tertiary
+        )
     }
 }
 
